@@ -29,6 +29,7 @@ class Updater(threading.Thread):
 
     def run(self):
         logger.info('Starting updater thread..')
+        self.update()
         while not self._stopflag.wait(timeout=self._config['interval']):
             try:
                 self.update()
@@ -71,15 +72,10 @@ class Updater(threading.Thread):
             else:
                 aps_mac[apmac] = 1
 
-            for mac in aps_mac:
-                if mac in config['mac_mapping'].keys():
-                    apname = config['mac_mapping']['mac']
-                    if apname in aps_name.keys():
-                        aps_name[apname] += 1
-                    else:
-                        aps_name[apname] = 1
-
-
+        for mac in aps_mac:
+            if mac in config['mac_mapping'].keys():
+                apname = config['mac_mapping'][mac]
+                aps_name[apname] = aps_mac[mac]
 
         self._ssids = ssids
         self._protocols = protocols
