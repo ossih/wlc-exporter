@@ -48,10 +48,13 @@ class Updater(threading.Thread):
 
         ssids = {}
         protocols = {}
+        aps_mac = {}
+        aps_name = {}
         for entry in entries:
             objects = entry['Objects']
             ssid = objects['CISCO-LWAPP-DOT11-CLIENT-MIB::cldcClientSSID']
             protocol = objects['CISCO-LWAPP-DOT11-CLIENT-MIB::cldcClientProtocol']
+            apmac = objects['CISCO-LWAPP-DOT11-CLIENT-MIB::cldcApMacAddress']
 
             if ssid in ssids.keys():
                 ssids[ssid] += 1
@@ -63,14 +66,37 @@ class Updater(threading.Thread):
             else:
                 protocols[protocol] = 1
 
+            if apmac in aps_mac.keys():
+                aps_mac[apmac] += 1
+            else:
+                aps_mac[apmac] = 1
+
+            for mac in aps_mac:
+                if mac in config['mac_mapping'].keys():
+                    apname = config['mac_mapping']['mac']
+                    if apname in aps_name.keys():
+                        aps_name[apname] += 1
+                    else:
+                        aps_name[apname] = 1
+
+
+
         self._ssids = ssids
         self._protocols = protocols
+        self._aps_mac = aps_mac
+        self._aps_name = aps_name
 
     def get_ssids(self):
         return self._ssids
 
     def get_protocols(self):
         return self._protocols
+
+    def get_aps_mac(self):
+        return self._aps_mac
+
+    def get_aps_name(self):
+        return self._aps_name
 
 
 @bottle.route('/metrics')
@@ -81,6 +107,12 @@ def bottle_metrics():
 
     for k, v in updater.get_protocols().items():
         output.append('wlc_types{{proto="{}"}} {}'.format(k, v))
+
+    for k, v in updater.get_aps_mac().items():
+        output.append('wlc_ap_clients_mac{{mac="{}"}} {}'.format(k, v))
+
+    for k, v in updater.get_aps_name().items():
+        output.append('wlc_ap_clients_name{{name="{}"}} {}'.format(k,v))
 
     text = '\n'.join(output)
     return bottle.HTTPResponse(text, headers={'Content-Type': 'text/plain'})

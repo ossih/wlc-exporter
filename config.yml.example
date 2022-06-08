@@ -2,3 +2,6 @@ interval: 30
 snmpbot: http://127.0.0.1:8286
 wlc: 192.0.2.1
 community: public
+
+mac_mapping:
+ 'ac:dc:ab:ba:cd:69': 'tunk-ap1'
