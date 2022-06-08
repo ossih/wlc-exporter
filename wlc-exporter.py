@@ -40,22 +40,35 @@ class Updater(threading.Thread):
     def update(self):
         logger.debug('Updating statistics..')
 
-        url = '{}/api/hosts/{}@{}/tables/CISCO-LWAPP-DOT11-CLIENT-MIB::cldcClientTable'.format(config['snmpbot'], config['community'], config['wlc'])
-        logger.debug('Using URL: {}'.format(url))
+        ap_url = '{}/api/hosts/{}@{}/tables/CISCO-LWAPP-AP-MIB::cLApTable'.format(config['snmpbot'], config['community'], config['wlc'])
+        cl_url = '{}/api/hosts/{}@{}/tables/CISCO-LWAPP-DOT11-CLIENT-MIB::cldcClientTable'.format(config['snmpbot'], config['community'], config['wlc'])
+        logger.debug('Using URL: {}'.format(ap_url))
+        logger.debug('Using URL: {}'.format(cl_url))
 
-        req = requests.get(url)
-        payload = req.json()
-        entries = payload['Entries']
+        ap_payload = requests.get(ap_url).json()
+        ap_entries = ap_payload['Entries']
+
+        cl_payload = requests.get(cl_url).json()
+        cl_entries = cl_payload['Entries']
 
         ssids = {}
         protocols = {}
         aps_mac = {}
         aps_name = {}
-        for entry in entries:
-            objects = entry['Objects']
-            ssid = objects['CISCO-LWAPP-DOT11-CLIENT-MIB::cldcClientSSID']
-            protocol = objects['CISCO-LWAPP-DOT11-CLIENT-MIB::cldcClientProtocol']
-            apmac = objects['CISCO-LWAPP-DOT11-CLIENT-MIB::cldcApMacAddress']
+        mac_mapping = {}
+
+        for ap_entry in ap_entries:
+            ap_mac = ap_entry['Index']['CISCO-LWAPP-AP-MIB::cLApSysMacAddress']
+            ap_name = ap_entry['Objects']['CISCO-LWAPP-AP-MIB::cLApName']
+            mac_mapping[ap_mac] = ap_name
+            aps_mac[ap_mac] = 0
+            aps_name[ap_name] = 0
+
+        for cl_entry in cl_entries:
+            cl_objects = cl_entry['Objects']
+            ssid = cl_objects['CISCO-LWAPP-DOT11-CLIENT-MIB::cldcClientSSID']
+            protocol = cl_objects['CISCO-LWAPP-DOT11-CLIENT-MIB::cldcClientProtocol']
+            ap_mac = cl_objects['CISCO-LWAPP-DOT11-CLIENT-MIB::cldcApMacAddress']
 
             if ssid in ssids.keys():
                 ssids[ssid] += 1
@@ -67,15 +80,8 @@ class Updater(threading.Thread):
             else:
                 protocols[protocol] = 1
 
-            if apmac in aps_mac.keys():
-                aps_mac[apmac] += 1
-            else:
-                aps_mac[apmac] = 1
-
-        for mac in aps_mac:
-            if mac in config['mac_mapping'].keys():
-                apname = config['mac_mapping'][mac]
-                aps_name[apname] = aps_mac[mac]
+            aps_mac[ap_mac] += 1
+            aps_name[mac_mapping[ap_mac]] += 1
 
         self._ssids = ssids
         self._protocols = protocols
