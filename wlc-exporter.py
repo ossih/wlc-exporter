@@ -78,6 +78,10 @@ class Updater(threading.Thread):
             else:
                 protocols[protocol] = 1
 
+            if not ap_mac in aps_mac.keys():
+                logger.error('Unknown AP MAC: {}'.format(ap_mac))
+                continue
+
             aps_mac[ap_mac] += 1
 
         self._ssids = ssids
