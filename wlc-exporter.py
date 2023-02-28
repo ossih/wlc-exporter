@@ -54,7 +54,6 @@ class Updater(threading.Thread):
         ssids = {}
         protocols = {}
         aps_mac = {}
-        aps_name = {}
         mac_mapping = {}
 
         for ap_entry in ap_entries:
@@ -62,7 +61,6 @@ class Updater(threading.Thread):
             ap_name = ap_entry['Objects']['CISCO-LWAPP-AP-MIB::cLApName']
             mac_mapping[ap_mac] = ap_name
             aps_mac[ap_mac] = 0
-            aps_name[ap_name] = 0
 
         for cl_entry in cl_entries:
             cl_objects = cl_entry['Objects']
@@ -81,12 +79,11 @@ class Updater(threading.Thread):
                 protocols[protocol] = 1
 
             aps_mac[ap_mac] += 1
-            aps_name[mac_mapping[ap_mac]] += 1
 
         self._ssids = ssids
         self._protocols = protocols
         self._aps_mac = aps_mac
-        self._aps_name = aps_name
+        self._mac_mapping = mac_mapping
 
     def get_ssids(self):
         return self._ssids
@@ -94,11 +91,12 @@ class Updater(threading.Thread):
     def get_protocols(self):
         return self._protocols
 
-    def get_aps_mac(self):
-        return self._aps_mac
-
-    def get_aps_name(self):
-        return self._aps_name
+    def get_aps(self):
+        ret = {}
+        for mac, num in self._aps_mac.items():
+            name = mac in self._mac_mapping.keys() and self._mac_mapping[mac] or 'N/A'
+            ret[(mac, name)] = num
+        return ret
 
 
 @bottle.route('/metrics')
@@ -110,11 +108,8 @@ def bottle_metrics():
     for k, v in updater.get_protocols().items():
         output.append('wlc_types{{proto="{}"}} {}'.format(k, v))
 
-    for k, v in updater.get_aps_mac().items():
-        output.append('wlc_ap_clients_mac{{mac="{}"}} {}'.format(k, v))
-
-    for k, v in updater.get_aps_name().items():
-        output.append('wlc_ap_clients_name{{name="{}"}} {}'.format(k,v))
+    for k, v in updater.get_aps().items():
+        output.append('wlc_ap_clients{{mac="{}", name="{}"}} {}'.format(k[0], k[1], v))
 
     text = '\n'.join(output)
     return bottle.HTTPResponse(text, headers={'Content-Type': 'text/plain'})
