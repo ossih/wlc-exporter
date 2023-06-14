@@ -18,6 +18,8 @@ class Updater(threading.Thread):
 
         self._ssids = {}
         self._protocols = {}
+        self._aps_mac = {}
+        self._mac_mapping = {}
 
         self._stopflag = threading.Event()
         self._next_run = 0
@@ -78,10 +80,6 @@ class Updater(threading.Thread):
             else:
                 protocols[protocol] = 1
 
-            if not ap_mac in aps_mac.keys():
-                logger.error('Unknown AP MAC: {}'.format(ap_mac))
-                continue
-
             aps_mac[ap_mac] += 1
 
         self._ssids = ssids
@@ -96,11 +94,10 @@ class Updater(threading.Thread):
         return self._protocols
 
     def get_aps(self):
-        ret = {}
-        for mac, num in self._aps_mac.items():
-            name = mac in self._mac_mapping.keys() and self._mac_mapping[mac] or 'N/A'
-            ret[(mac, name)] = num
-        return ret
+        return self._aps_mac
+
+    def get_ap_name(self, mac):
+        return self._mac_mapping.get(mac, '')
 
 
 @bottle.route('/metrics')
@@ -113,7 +110,8 @@ def bottle_metrics():
         output.append('wlc_types{{proto="{}"}} {}'.format(k, v))
 
     for k, v in updater.get_aps().items():
-        output.append('wlc_ap_clients{{mac="{}", name="{}"}} {}'.format(k[0], k[1], v))
+        n = updater.get_ap_name(k)
+        output.append('wlc_ap_clients{{mac="{}", name="{}"}} {}'.format(k, n, v))
 
     text = '\n'.join(output)
     return bottle.HTTPResponse(text, headers={'Content-Type': 'text/plain'})
